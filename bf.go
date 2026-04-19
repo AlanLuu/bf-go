@@ -20,8 +20,10 @@ const (
 	op_END = iota
 	op_FORWARD
 	op_BACKWARD
+	op_FOWARD_BY
 	op_INCREMENT
 	op_DECREMENT
+	op_INCREMENT_BY
 	op_OUTPUT
 	op_INPUT
 	op_JUMP_FORWARD
@@ -29,8 +31,8 @@ const (
 )
 
 type chunk struct {
-	jump int
-	op   int
+	op  int
+	val int
 }
 
 type Options struct {
@@ -98,6 +100,8 @@ func interpret(chunks []chunk, opts *Options) error {
 			index++
 		case op_BACKWARD:
 			index--
+		case op_FOWARD_BY:
+			index += chunks[ip].val
 		case op_INCREMENT:
 			if index < 0 {
 				if negArr == nil {
@@ -115,6 +119,15 @@ func interpret(chunks []chunk, opts *Options) error {
 				negArr[^index]--
 			} else {
 				arr[index]--
+			}
+		case op_INCREMENT_BY:
+			if index < 0 {
+				if negArr == nil {
+					negArr = make([]uint8, opts.ArrSize)
+				}
+				negArr[^index] += uint8(chunks[ip].val)
+			} else {
+				arr[index] += uint8(chunks[ip].val)
 			}
 		case op_OUTPUT:
 			if index < 0 {
@@ -182,10 +195,10 @@ func interpret(chunks []chunk, opts *Options) error {
 					negArr = make([]uint8, opts.ArrSize)
 				}
 				if negArr[^index] == 0 {
-					ip = chunks[ip].jump
+					ip = chunks[ip].val
 				}
 			} else if arr[index] == 0 {
-				ip = chunks[ip].jump
+				ip = chunks[ip].val
 			}
 		case op_JUMP_BACKWARD:
 			if index < 0 {
@@ -193,10 +206,10 @@ func interpret(chunks []chunk, opts *Options) error {
 					negArr = make([]uint8, opts.ArrSize)
 				}
 				if negArr[^index] != 0 {
-					ip = chunks[ip].jump
+					ip = chunks[ip].val
 				}
 			} else if arr[index] != 0 {
-				ip = chunks[ip].jump
+				ip = chunks[ip].val
 			}
 		default: // should never happen
 			return bfInterpretErr(
@@ -246,6 +259,8 @@ func parse(text string, opts *Options) ([]chunk, error) {
 	chunks := make([]chunk, opts.ProgramSize)
 	bracketsStack := make([]int, 0, 10)
 	foundBfChar := false
+	ptrCount := 0
+	incCount := 0
 	i := 0
 	for _, c := range text {
 		if opts.sepInput != nil {
@@ -260,18 +275,77 @@ func parse(text string, opts *Options) ([]chunk, error) {
 			)
 		}
 		switch c {
-		case '>':
-			chunks[i].op = op_FORWARD
-			foundBfChar = true
-		case '<':
-			chunks[i].op = op_BACKWARD
-			foundBfChar = true
-		case '+':
-			chunks[i].op = op_INCREMENT
-			foundBfChar = true
-		case '-':
-			chunks[i].op = op_DECREMENT
-			foundBfChar = true
+		case '>', '<', '+', '-':
+			switch c {
+			case '>', '<':
+				if incCount != 0 {
+					chunks[i].op = op_INCREMENT_BY
+					chunks[i].val = incCount
+					i++
+					if i >= len(chunks) && !opts.ProgramHasStaticSize {
+						chunks = append(chunks, chunk{})
+						chunks = chunks[:cap(chunks)]
+					}
+					incCount = 0
+				}
+				if c == '>' {
+					ptrCount++
+				} else {
+					ptrCount--
+				}
+			default:
+				if ptrCount != 0 {
+					chunks[i].op = op_FOWARD_BY
+					chunks[i].val = ptrCount
+					i++
+					if i >= len(chunks) && !opts.ProgramHasStaticSize {
+						chunks = append(chunks, chunk{})
+						chunks = chunks[:cap(chunks)]
+					}
+					ptrCount = 0
+				}
+				if c == '+' {
+					incCount++
+				} else {
+					incCount--
+				}
+			}
+			continue
+		default:
+			if ptrCount != 0 {
+				chunks[i].op = op_FOWARD_BY
+				chunks[i].val = ptrCount
+				i++
+				if i >= len(chunks) && !opts.ProgramHasStaticSize {
+					chunks = append(chunks, chunk{})
+					chunks = chunks[:cap(chunks)]
+				}
+				ptrCount = 0
+			}
+			if incCount != 0 {
+				chunks[i].op = op_INCREMENT_BY
+				chunks[i].val = incCount
+				i++
+				if i >= len(chunks) && !opts.ProgramHasStaticSize {
+					chunks = append(chunks, chunk{})
+					chunks = chunks[:cap(chunks)]
+				}
+				incCount = 0
+			}
+		}
+		switch c {
+		// case '>':
+		// 	chunks[i].op = op_FORWARD
+		// 	foundBfChar = true
+		// case '<':
+		// 	chunks[i].op = op_BACKWARD
+		// 	foundBfChar = true
+		// case '+':
+		// 	chunks[i].op = op_INCREMENT
+		// 	foundBfChar = true
+		// case '-':
+		// 	chunks[i].op = op_DECREMENT
+		// 	foundBfChar = true
 		case '.':
 			chunks[i].op = op_OUTPUT
 			foundBfChar = true
@@ -281,7 +355,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		case '[':
 			chunks[i].op = op_JUMP_FORWARD
 			foundBfChar = true
-			chunks[i].jump = i
+			chunks[i].val = i
 			bracketsStack = append(bracketsStack, i)
 		case ']':
 			if len(bracketsStack) == 0 {
@@ -295,8 +369,8 @@ func parse(text string, opts *Options) ([]chunk, error) {
 			last := len(bracketsStack) - 1
 			ii := bracketsStack[last]
 			bracketsStack = bracketsStack[:last]
-			chunks[i].jump = ii
-			chunks[ii].jump = i
+			chunks[i].val = ii
+			chunks[ii].val = i
 		case '!':
 			if opts.SepInput {
 				opts.sepInput = new(bytes.Buffer)
@@ -313,6 +387,24 @@ func parse(text string, opts *Options) ([]chunk, error) {
 	}
 	if len(bracketsStack) > 0 {
 		return nil, bfParseErrAtEnd("mismatched opening brackets")
+	}
+	if ptrCount != 0 {
+		chunks[i].op = op_FOWARD_BY
+		chunks[i].val = ptrCount
+		i++
+		if i >= len(chunks) && !opts.ProgramHasStaticSize {
+			chunks = append(chunks, chunk{})
+			chunks = chunks[:cap(chunks)]
+		}
+	}
+	if incCount != 0 {
+		chunks[i].op = op_INCREMENT_BY
+		chunks[i].val = incCount
+		i++
+		if i >= len(chunks) && !opts.ProgramHasStaticSize {
+			chunks = append(chunks, chunk{})
+			chunks = chunks[:cap(chunks)]
+		}
 	}
 	return chunks, nil
 }
