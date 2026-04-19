@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	_ "embed"
 	"flag"
 	"fmt"
 	"io"
@@ -20,6 +21,11 @@ const (
 )
 
 var (
+	hanoiFlag *bool = nil
+
+	//go:embed hanoi.bf
+	hanoiProgram string
+
 	stdinIsTerminal = false
 	useTTY          = false
 )
@@ -120,6 +126,9 @@ func perrorln(s string) {
 }
 
 func getBfProgram() (string, bool, error) {
+	if *hanoiFlag {
+		return hanoiProgram, true, nil
+	}
 	args := flag.Args()
 	var reader io.Reader
 	if len(args) == 0 {
@@ -172,6 +181,7 @@ func printVersion() {
 	} else {
 		builder.WriteString(" (no git hash)")
 	}
+	builder.WriteString(" (hanoi)")
 	builder.WriteByte(' ')
 	builder.WriteByte('(')
 	builder.WriteString(runtime.Version())
@@ -197,6 +207,7 @@ func realMain() int {
 		ttyFlagName           = "tty"
 		bufferInputName       = "buffer-input"
 		bufferOutputName      = "buffer-output"
+		hanoiFlagName         = "hanoi"
 		versionName1          = "version"
 		versionName2          = "v"
 	)
@@ -295,6 +306,11 @@ func realMain() int {
 			false,
 			"Alias for -"+versionName1,
 		)
+	)
+	hanoiFlag = flag.Bool(
+		hanoiFlagName,
+		false,
+		"Tower of Hanoi",
 	)
 	flag.Parse()
 	if *version1 || *version2 {

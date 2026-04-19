@@ -18,6 +18,8 @@ OPTIONS:
         Execute bf code from command line argument
   -eof int
         Specify value returned to bf array on EOF; default is 0
+  -hanoi
+        Tower of Hanoi
   -neg
         Allow negative addresses in bf array
   -no-eof
