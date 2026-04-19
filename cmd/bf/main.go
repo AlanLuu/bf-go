@@ -187,6 +187,7 @@ func realMain() int {
 		programSizeName       = "p"
 		eofFlagName           = "eof"
 		noEofFlagName         = "no-eof"
+		noOptsFlagName        = "no-opts"
 		arrNegAddrName        = "neg"
 		arrStaticSizeName     = "static-arr"
 		programStaticSizeName = "static-program"
@@ -226,6 +227,11 @@ func realMain() int {
 			false,
 			"Disable returning value to bf array on EOF; "+
 				"overrides -"+eofFlagName,
+		)
+		noOptsFlag = flag.Bool(
+			noOptsFlagName,
+			false,
+			"Disable bytecode optimizations that improve runtime speed",
 		)
 		arrNegAddr = flag.Bool(
 			arrNegAddrName,
@@ -382,6 +388,7 @@ func realMain() int {
 		ArrBlock:             *arrBlock,
 		ArrWrapAround:        *arrWrapAround,
 		SepInput:             *sepInput,
+		NoOptimizations:      *noOptsFlag,
 		OnEOF:                onEOF,
 		Reader:               reader,
 		Writer:               writer,

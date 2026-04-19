@@ -44,6 +44,7 @@ type Options struct {
 	ArrBlock             bool
 	ArrWrapAround        bool
 	SepInput             bool
+	NoOptimizations      bool
 	OnEOF                int16
 	sepInput             *bytes.Buffer
 	Reader               io.Reader
@@ -274,25 +275,63 @@ func parse(text string, opts *Options) ([]chunk, error) {
 				opts.ProgramSize,
 			)
 		}
-		switch c {
-		case '>', '<', '+', '-':
+		if opts.NoOptimizations {
 			switch c {
-			case '>', '<':
-				if incCount != 0 {
-					chunks[i].op = op_INCREMENT_BY
-					chunks[i].val = incCount
-					i++
-					if i >= len(chunks) && !opts.ProgramHasStaticSize {
-						chunks = append(chunks, chunk{})
-						chunks = chunks[:cap(chunks)]
+			case '>':
+				chunks[i].op = op_FORWARD
+				foundBfChar = true
+				goto foundBfChar_label
+			case '<':
+				chunks[i].op = op_BACKWARD
+				foundBfChar = true
+				goto foundBfChar_label
+			case '+':
+				chunks[i].op = op_INCREMENT
+				foundBfChar = true
+				goto foundBfChar_label
+			case '-':
+				chunks[i].op = op_DECREMENT
+				foundBfChar = true
+				goto foundBfChar_label
+			}
+		} else {
+			switch c {
+			case '>', '<', '+', '-':
+				switch c {
+				case '>', '<':
+					if incCount != 0 {
+						chunks[i].op = op_INCREMENT_BY
+						chunks[i].val = incCount
+						i++
+						if i >= len(chunks) && !opts.ProgramHasStaticSize {
+							chunks = append(chunks, chunk{})
+							chunks = chunks[:cap(chunks)]
+						}
+						incCount = 0
 					}
-					incCount = 0
+					if c == '>' {
+						ptrCount++
+					} else {
+						ptrCount--
+					}
+				default:
+					if ptrCount != 0 {
+						chunks[i].op = op_FOWARD_BY
+						chunks[i].val = ptrCount
+						i++
+						if i >= len(chunks) && !opts.ProgramHasStaticSize {
+							chunks = append(chunks, chunk{})
+							chunks = chunks[:cap(chunks)]
+						}
+						ptrCount = 0
+					}
+					if c == '+' {
+						incCount++
+					} else {
+						incCount--
+					}
 				}
-				if c == '>' {
-					ptrCount++
-				} else {
-					ptrCount--
-				}
+				continue
 			default:
 				if ptrCount != 0 {
 					chunks[i].op = op_FOWARD_BY
@@ -304,33 +343,16 @@ func parse(text string, opts *Options) ([]chunk, error) {
 					}
 					ptrCount = 0
 				}
-				if c == '+' {
-					incCount++
-				} else {
-					incCount--
+				if incCount != 0 {
+					chunks[i].op = op_INCREMENT_BY
+					chunks[i].val = incCount
+					i++
+					if i >= len(chunks) && !opts.ProgramHasStaticSize {
+						chunks = append(chunks, chunk{})
+						chunks = chunks[:cap(chunks)]
+					}
+					incCount = 0
 				}
-			}
-			continue
-		default:
-			if ptrCount != 0 {
-				chunks[i].op = op_FOWARD_BY
-				chunks[i].val = ptrCount
-				i++
-				if i >= len(chunks) && !opts.ProgramHasStaticSize {
-					chunks = append(chunks, chunk{})
-					chunks = chunks[:cap(chunks)]
-				}
-				ptrCount = 0
-			}
-			if incCount != 0 {
-				chunks[i].op = op_INCREMENT_BY
-				chunks[i].val = incCount
-				i++
-				if i >= len(chunks) && !opts.ProgramHasStaticSize {
-					chunks = append(chunks, chunk{})
-					chunks = chunks[:cap(chunks)]
-				}
-				incCount = 0
 			}
 		}
 		switch c {
@@ -376,6 +398,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 				opts.sepInput = new(bytes.Buffer)
 			}
 		}
+	foundBfChar_label:
 		if foundBfChar {
 			i++
 			if i >= len(chunks) && !opts.ProgramHasStaticSize {
@@ -388,22 +411,24 @@ func parse(text string, opts *Options) ([]chunk, error) {
 	if len(bracketsStack) > 0 {
 		return nil, bfParseErrAtEnd("mismatched opening brackets")
 	}
-	if ptrCount != 0 {
-		chunks[i].op = op_FOWARD_BY
-		chunks[i].val = ptrCount
-		i++
-		if i >= len(chunks) && !opts.ProgramHasStaticSize {
-			chunks = append(chunks, chunk{})
-			chunks = chunks[:cap(chunks)]
+	if !opts.NoOptimizations {
+		if ptrCount != 0 {
+			chunks[i].op = op_FOWARD_BY
+			chunks[i].val = ptrCount
+			i++
+			if i >= len(chunks) && !opts.ProgramHasStaticSize {
+				chunks = append(chunks, chunk{})
+				chunks = chunks[:cap(chunks)]
+			}
 		}
-	}
-	if incCount != 0 {
-		chunks[i].op = op_INCREMENT_BY
-		chunks[i].val = incCount
-		i++
-		if i >= len(chunks) && !opts.ProgramHasStaticSize {
-			chunks = append(chunks, chunk{})
-			chunks = chunks[:cap(chunks)]
+		if incCount != 0 {
+			chunks[i].op = op_INCREMENT_BY
+			chunks[i].val = incCount
+			i++
+			if i >= len(chunks) && !opts.ProgramHasStaticSize {
+				chunks = append(chunks, chunk{})
+				chunks = chunks[:cap(chunks)]
+			}
 		}
 	}
 	return chunks, nil

@@ -22,17 +22,22 @@ OPTIONS:
         Allow negative addresses in bf array
   -no-eof
         Disable returning value to bf array on EOF; overrides -eof
+  -no-opts
+        Disable bytecode optimizations that improve runtime speed
   -p int
         Specify initial size of bf program
   -sep
         Allow specifying input to bf program in the program itself, separated by '!'
-        Example: ",[.,]!Hello world"
+        Example: ',[.,]!Hello world'
   -static-arr
         Exit with error upon going over or under size of bf array; overrides -neg
   -static-program
         Exit with error upon going over size of program
   -tty
         Read in bf code from terminal if stdin is connected to a terminal
+  -v    Alias for -version
+  -version
+        Print version information and exit
   -wrap
         Wrap bf array address upon going over or under size of bf array; overrides -neg, -static-arr, and -block
 ```
