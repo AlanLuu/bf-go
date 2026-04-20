@@ -107,6 +107,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				negArr[^index]++
 			} else {
@@ -116,6 +120,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				negArr[^index]--
 			} else {
@@ -125,6 +133,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				negArr[^index] += uint8(chunks[ip].val)
 			} else {
@@ -134,6 +146,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				b[0] = negArr[^index]
 			} else {
@@ -166,6 +182,10 @@ func interpret(chunks []chunk, opts *Options) error {
 					if index < 0 {
 						if negArr == nil {
 							negArr = make([]uint8, opts.ArrSize)
+							for ^index >= len(negArr) {
+								negArr = append(negArr, 0)
+								negArr = negArr[:cap(negArr)]
+							}
 						}
 						if eofInRange {
 							negArr[^index] = uint8(opts.OnEOF)
@@ -184,6 +204,10 @@ func interpret(chunks []chunk, opts *Options) error {
 				if index < 0 {
 					if negArr == nil {
 						negArr = make([]uint8, opts.ArrSize)
+						for ^index >= len(negArr) {
+							negArr = append(negArr, 0)
+							negArr = negArr[:cap(negArr)]
+						}
 					}
 					negArr[^index] = b[0]
 				} else {
@@ -194,6 +218,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				if negArr[^index] == 0 {
 					ip = chunks[ip].val
@@ -205,6 +233,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				if negArr[^index] != 0 {
 					ip = chunks[ip].val
@@ -243,11 +275,15 @@ func interpret(chunks []chunk, opts *Options) error {
 					opts.ArrSize,
 				)
 			}
-			arr = append(arr, 0)
-			arr = arr[:cap(arr)]
-		} else if index < 0 && negArr != nil && ^index >= len(negArr) {
-			negArr = append(negArr, 0)
-			negArr = negArr[:cap(negArr)]
+			for index >= len(arr) {
+				arr = append(arr, 0)
+				arr = arr[:cap(arr)]
+			}
+		} else if index < 0 && negArr != nil {
+			for ^index >= len(negArr) {
+				negArr = append(negArr, 0)
+				negArr = negArr[:cap(negArr)]
+			}
 		}
 	}
 	if !arrNegAddr && index < 0 {
