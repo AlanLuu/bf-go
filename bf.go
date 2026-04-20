@@ -299,6 +299,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 	ptrCount := 0
 	incCount := 0
 	i := 0
+	charPos := 1
 	for _, c := range text {
 		if opts.sepInput != nil {
 			opts.sepInput.WriteRune(c)
@@ -306,7 +307,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		}
 		if opts.ProgramHasStaticSize && i >= opts.ProgramSize {
 			return nil, bfInterpretErr(
-				i+1,
+				charPos,
 				"program size of %v exceeded",
 				opts.ProgramSize,
 			)
@@ -367,6 +368,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 						incCount--
 					}
 				}
+				charPos++
 				continue
 			default:
 				if ptrCount != 0 {
@@ -418,7 +420,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		case ']':
 			if len(bracketsStack) == 0 {
 				return nil, bfParseErr(
-					i+1,
+					charPos,
 					"mismatched closing brackets",
 				)
 			}
@@ -436,6 +438,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		}
 	foundBfChar_label:
 		if foundBfChar {
+			charPos++
 			i++
 			if i >= len(chunks) && !opts.ProgramHasStaticSize {
 				chunks = append(chunks, chunk{})
