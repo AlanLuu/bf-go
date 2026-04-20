@@ -33,6 +33,7 @@ const (
 type chunk struct {
 	op  int
 	val int
+	err int
 }
 
 type Options struct {
@@ -69,6 +70,15 @@ func bfInterpretErr(index int, format string, a ...any) error {
 	)
 }
 
+func bfInterpretErrOptimized(index int, format string, a ...any) error {
+	return bfErr(
+		"error in optimized character set right before bf character #"+
+			fmt.Sprint(index)+
+			": "+format,
+		a...,
+	)
+}
+
 func bfParseErr(index int, format string, a ...any) error {
 	return bfErr(
 		"parse error at bf character #"+fmt.Sprint(index)+": "+format,
@@ -91,6 +101,12 @@ func interpret(chunks []chunk, opts *Options) error {
 	arrWrapAround := opts.ArrWrapAround
 	eofInRange := opts.eofInRange()
 	chunksLen := len(chunks)
+	var errFunc func(index int, format string, a ...any) error
+	if opts.NoOptimizations {
+		errFunc = bfInterpretErr
+	} else {
+		errFunc = bfInterpretErrOptimized
+	}
 	var b [1]byte
 	ip, index := 0, 0
 	for ; ip >= 0 && ip < chunksLen && (arrNegAddr || index >= 0); ip++ {
@@ -107,6 +123,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				negArr[^index]++
 			} else {
@@ -116,6 +136,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				negArr[^index]--
 			} else {
@@ -125,6 +149,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				negArr[^index] += uint8(chunks[ip].val)
 			} else {
@@ -134,6 +162,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				b[0] = negArr[^index]
 			} else {
@@ -146,8 +178,8 @@ func interpret(chunks []chunk, opts *Options) error {
 				_, err = os.Stdout.Write(b[:])
 			}
 			if err != nil {
-				return bfInterpretErr(
-					ip+1,
+				return errFunc(
+					chunks[ip].err,
 					"failed to write byte at array position #%v",
 					index+1,
 				)
@@ -166,6 +198,10 @@ func interpret(chunks []chunk, opts *Options) error {
 					if index < 0 {
 						if negArr == nil {
 							negArr = make([]uint8, opts.ArrSize)
+							for ^index >= len(negArr) {
+								negArr = append(negArr, 0)
+								negArr = negArr[:cap(negArr)]
+							}
 						}
 						if eofInRange {
 							negArr[^index] = uint8(opts.OnEOF)
@@ -174,8 +210,8 @@ func interpret(chunks []chunk, opts *Options) error {
 						arr[index] = uint8(opts.OnEOF)
 					}
 				} else {
-					return bfInterpretErr(
-						ip+1,
+					return errFunc(
+						chunks[ip].err,
 						"failed to read byte into array position #%v",
 						index+1,
 					)
@@ -184,6 +220,10 @@ func interpret(chunks []chunk, opts *Options) error {
 				if index < 0 {
 					if negArr == nil {
 						negArr = make([]uint8, opts.ArrSize)
+						for ^index >= len(negArr) {
+							negArr = append(negArr, 0)
+							negArr = negArr[:cap(negArr)]
+						}
 					}
 					negArr[^index] = b[0]
 				} else {
@@ -194,6 +234,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				if negArr[^index] == 0 {
 					ip = chunks[ip].val
@@ -205,6 +249,10 @@ func interpret(chunks []chunk, opts *Options) error {
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
+					for ^index >= len(negArr) {
+						negArr = append(negArr, 0)
+						negArr = negArr[:cap(negArr)]
+					}
 				}
 				if negArr[^index] != 0 {
 					ip = chunks[ip].val
@@ -213,8 +261,8 @@ func interpret(chunks []chunk, opts *Options) error {
 				ip = chunks[ip].val
 			}
 		default: // should never happen
-			return bfInterpretErr(
-				ip+1,
+			return errFunc(
+				chunks[ip].err,
 				"unknown opcode number '%v'",
 				chunks[ip].op,
 			)
@@ -237,21 +285,28 @@ func interpret(chunks []chunk, opts *Options) error {
 		}
 		if index >= len(arr) {
 			if opts.ArrHasStaticSize {
-				return bfInterpretErr(
-					ip+1,
+				return errFunc(
+					chunks[ip].err,
 					"array address exceeded array size of %v",
 					opts.ArrSize,
 				)
 			}
-			arr = append(arr, 0)
-			arr = arr[:cap(arr)]
-		} else if index < 0 && negArr != nil && ^index >= len(negArr) {
-			negArr = append(negArr, 0)
-			negArr = negArr[:cap(negArr)]
+			for index >= len(arr) {
+				arr = append(arr, 0)
+				arr = arr[:cap(arr)]
+			}
+		} else if index < 0 && negArr != nil {
+			for ^index >= len(negArr) {
+				negArr = append(negArr, 0)
+				negArr = negArr[:cap(negArr)]
+			}
 		}
 	}
 	if !arrNegAddr && index < 0 {
-		return bfInterpretErr(ip, NegativeArrErrMsg)
+		if ip <= 0 {
+			return errFunc(1, NegativeArrErrMsg)
+		}
+		return errFunc(chunks[ip-1].err, NegativeArrErrMsg)
 	}
 	return nil
 }
@@ -263,6 +318,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 	ptrCount := 0
 	incCount := 0
 	i := 0
+	charPos := 1
 	for _, c := range text {
 		if opts.sepInput != nil {
 			opts.sepInput.WriteRune(c)
@@ -270,7 +326,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		}
 		if opts.ProgramHasStaticSize && i >= opts.ProgramSize {
 			return nil, bfInterpretErr(
-				i+1,
+				charPos,
 				"program size of %v exceeded",
 				opts.ProgramSize,
 			)
@@ -302,6 +358,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 					if incCount != 0 {
 						chunks[i].op = op_INCREMENT_BY
 						chunks[i].val = incCount
+						chunks[i].err = charPos
 						i++
 						if i >= len(chunks) && !opts.ProgramHasStaticSize {
 							chunks = append(chunks, chunk{})
@@ -318,6 +375,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 					if ptrCount != 0 {
 						chunks[i].op = op_FOWARD_BY
 						chunks[i].val = ptrCount
+						chunks[i].err = charPos
 						i++
 						if i >= len(chunks) && !opts.ProgramHasStaticSize {
 							chunks = append(chunks, chunk{})
@@ -331,11 +389,13 @@ func parse(text string, opts *Options) ([]chunk, error) {
 						incCount--
 					}
 				}
+				charPos++
 				continue
 			default:
 				if ptrCount != 0 {
 					chunks[i].op = op_FOWARD_BY
 					chunks[i].val = ptrCount
+					chunks[i].err = charPos
 					i++
 					if i >= len(chunks) && !opts.ProgramHasStaticSize {
 						chunks = append(chunks, chunk{})
@@ -346,6 +406,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 				if incCount != 0 {
 					chunks[i].op = op_INCREMENT_BY
 					chunks[i].val = incCount
+					chunks[i].err = charPos
 					i++
 					if i >= len(chunks) && !opts.ProgramHasStaticSize {
 						chunks = append(chunks, chunk{})
@@ -382,7 +443,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		case ']':
 			if len(bracketsStack) == 0 {
 				return nil, bfParseErr(
-					i+1,
+					charPos,
 					"mismatched closing brackets",
 				)
 			}
@@ -400,6 +461,8 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		}
 	foundBfChar_label:
 		if foundBfChar {
+			chunks[i].err = charPos
+			charPos++
 			i++
 			if i >= len(chunks) && !opts.ProgramHasStaticSize {
 				chunks = append(chunks, chunk{})
@@ -415,6 +478,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		if ptrCount != 0 {
 			chunks[i].op = op_FOWARD_BY
 			chunks[i].val = ptrCount
+			chunks[i].err = charPos
 			i++
 			if i >= len(chunks) && !opts.ProgramHasStaticSize {
 				chunks = append(chunks, chunk{})
@@ -424,6 +488,7 @@ func parse(text string, opts *Options) ([]chunk, error) {
 		if incCount != 0 {
 			chunks[i].op = op_INCREMENT_BY
 			chunks[i].val = incCount
+			chunks[i].err = charPos
 			i++
 			if i >= len(chunks) && !opts.ProgramHasStaticSize {
 				chunks = append(chunks, chunk{})
