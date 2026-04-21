@@ -20,6 +20,8 @@ OPTIONS:
         Specify value returned to bf array on EOF; default is 0
   -hanoi
         Tower of Hanoi
+  -loop int
+        Number of times to repeat bf program; negative number means infinite
   -neg
         Allow negative addresses in bf array
   -no-eof

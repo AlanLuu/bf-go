@@ -39,6 +39,7 @@ type chunk struct {
 type Options struct {
 	ArrSize              int
 	ProgramSize          int
+	LoopTimes            int64
 	ArrHasNegAddress     bool
 	ArrHasStaticSize     bool
 	ProgramHasStaticSize bool
@@ -99,6 +100,7 @@ func interpret(chunks []chunk, opts *Options) error {
 	arrNegAddr := opts.ArrHasNegAddress
 	arrBlock := opts.ArrBlock
 	arrWrapAround := opts.ArrWrapAround
+	loopTimes := opts.LoopTimes
 	eofInRange := opts.eofInRange()
 	chunksLen := len(chunks)
 	var errFunc func(index int, format string, a ...any) error
@@ -107,11 +109,35 @@ func interpret(chunks []chunk, opts *Options) error {
 	} else {
 		errFunc = bfInterpretErrOptimized
 	}
+	var loopTimesCount int64 = 0
+loop_begin:
 	var b [1]byte
 	ip, index := 0, 0
 	for ; ip >= 0 && ip < chunksLen && (arrNegAddr || index >= 0); ip++ {
 		switch chunks[ip].op {
 		case op_END:
+			if loopTimes < 0 {
+				for i := 0; i < len(arr); i++ {
+					arr[i] = 0
+				}
+				if negArr != nil {
+					for i := 0; i < len(negArr); i++ {
+						negArr[i] = 0
+					}
+				}
+				goto loop_begin
+			} else if loopTimes > 0 && loopTimesCount < loopTimes-1 {
+				loopTimesCount++
+				for i := 0; i < len(arr); i++ {
+					arr[i] = 0
+				}
+				if negArr != nil {
+					for i := 0; i < len(negArr); i++ {
+						negArr[i] = 0
+					}
+				}
+				goto loop_begin
+			}
 			return nil
 		case op_FORWARD:
 			index++
@@ -307,6 +333,28 @@ func interpret(chunks []chunk, opts *Options) error {
 			return errFunc(1, NegativeArrErrMsg)
 		}
 		return errFunc(chunks[ip-1].err, NegativeArrErrMsg)
+	}
+	if loopTimes < 0 {
+		for i := 0; i < len(arr); i++ {
+			arr[i] = 0
+		}
+		if negArr != nil {
+			for i := 0; i < len(negArr); i++ {
+				negArr[i] = 0
+			}
+		}
+		goto loop_begin
+	} else if loopTimes > 0 && loopTimesCount < loopTimes-1 {
+		loopTimesCount++
+		for i := 0; i < len(arr); i++ {
+			arr[i] = 0
+		}
+		if negArr != nil {
+			for i := 0; i < len(negArr); i++ {
+				negArr[i] = 0
+			}
+		}
+		goto loop_begin
 	}
 	return nil
 }
