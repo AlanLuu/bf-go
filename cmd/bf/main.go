@@ -192,6 +192,7 @@ func realMain() int {
 		arrStaticSizeName     = "static-arr"
 		programStaticSizeName = "static-program"
 		arrBlockName          = "block"
+		loopName              = "loop"
 		arrWrapAroundName     = "wrap"
 		sepInputName          = "sep"
 		ttyFlagName           = "tty"
@@ -255,6 +256,12 @@ func realMain() int {
 			"Block array address from going over or under size of bf array; "+
 				"overrides -"+arrNegAddrName+", -"+arrStaticSizeName+
 				", and -"+arrWrapAroundName,
+		)
+		loopTimes = flag.Int64(
+			loopName,
+			0,
+			"Number of times to repeat bf program; "+
+				"negative number means infinite",
 		)
 		arrWrapAround = flag.Bool(
 			arrWrapAroundName,
@@ -382,6 +389,7 @@ func realMain() int {
 	bfOptions := &bf.Options{
 		ArrSize:              *arrSize,
 		ProgramSize:          *programSize,
+		LoopTimes:            *loopTimes,
 		ArrHasNegAddress:     *arrNegAddr,
 		ArrHasStaticSize:     *arrStaticSize,
 		ProgramHasStaticSize: *programStaticSize,
