@@ -100,6 +100,7 @@ func interpret(chunks []chunk, opts *Options) error {
 	arrNegAddr := opts.ArrHasNegAddress
 	arrBlock := opts.ArrBlock
 	arrWrapAround := opts.ArrWrapAround
+	hasOpts := !opts.NoOptimizations
 	loopTimes := opts.LoopTimes
 	eofInRange := opts.eofInRange()
 	chunksLen := len(chunks)
@@ -265,9 +266,23 @@ loop_begin:
 						negArr = negArr[:cap(negArr)]
 					}
 				}
-				if negArr[^index] == 0 {
+				if hasOpts && ip+2 < chunksLen &&
+					(chunks[ip+1].op == op_DECREMENT ||
+						(chunks[ip+1].op == op_INCREMENT_BY &&
+							chunks[ip+1].val == -1)) &&
+					chunks[ip+2].op == op_JUMP_BACKWARD { //Detect "[-]"
+					negArr[^index] = 0
+					ip += 2
+				} else if negArr[^index] == 0 {
 					ip = chunks[ip].val
 				}
+			} else if hasOpts && ip+2 < chunksLen &&
+				(chunks[ip+1].op == op_DECREMENT ||
+					(chunks[ip+1].op == op_INCREMENT_BY &&
+						chunks[ip+1].val == -1)) &&
+				chunks[ip+2].op == op_JUMP_BACKWARD { //Detect "[-]"
+				arr[index] = 0
+				ip += 2
 			} else if arr[index] == 0 {
 				ip = chunks[ip].val
 			}
