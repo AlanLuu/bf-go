@@ -270,8 +270,8 @@ func realMain() int {
 		)
 		loopTimes = flag.Int64(
 			loopName,
-			0,
-			"Number of times to repeat bf program; "+
+			1,
+			"Number of times to run bf program; "+
 				"negative number means infinite",
 		)
 		arrWrapAround = flag.Bool(
