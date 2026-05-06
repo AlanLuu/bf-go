@@ -95,13 +95,16 @@ func bfParseErrAtEnd(format string, a ...any) error {
 }
 
 func interpret(chunks []chunk, opts *Options) error {
+	loopTimes := opts.LoopTimes
+	if loopTimes == 0 {
+		return nil
+	}
 	arr := make([]uint8, opts.ArrSize)
 	var negArr []uint8
 	arrNegAddr := opts.ArrHasNegAddress
 	arrBlock := opts.ArrBlock
 	arrWrapAround := opts.ArrWrapAround
 	hasOpts := !opts.NoOptimizations
-	loopTimes := opts.LoopTimes
 	eofInRange := opts.eofInRange()
 	chunksLen := len(chunks)
 	var errFunc func(index int, format string, a ...any) error
@@ -111,9 +114,9 @@ func interpret(chunks []chunk, opts *Options) error {
 		errFunc = bfInterpretErrOptimized
 	}
 	var loopTimesCount int64 = 0
-loop_begin:
 	var b [1]byte
 	ip, index := 0, 0
+loop_begin:
 	for ; ip >= 0 && ip < chunksLen && (arrNegAddr || index >= 0); ip++ {
 		switch chunks[ip].op {
 		case op_END:
@@ -126,8 +129,10 @@ loop_begin:
 						negArr[i] = 0
 					}
 				}
+				b[0] = 0
+				ip, index = 0, 0
 				goto loop_begin
-			} else if loopTimes > 0 && loopTimesCount < loopTimes-1 {
+			} else if loopTimes > 1 && loopTimesCount < loopTimes-1 {
 				loopTimesCount++
 				for i := 0; i < len(arr); i++ {
 					arr[i] = 0
@@ -137,6 +142,8 @@ loop_begin:
 						negArr[i] = 0
 					}
 				}
+				b[0] = 0
+				ip, index = 0, 0
 				goto loop_begin
 			}
 			return nil
@@ -358,8 +365,10 @@ loop_begin:
 				negArr[i] = 0
 			}
 		}
+		b[0] = 0
+		ip, index = 0, 0
 		goto loop_begin
-	} else if loopTimes > 0 && loopTimesCount < loopTimes-1 {
+	} else if loopTimes > 1 && loopTimesCount < loopTimes-1 {
 		loopTimesCount++
 		for i := 0; i < len(arr); i++ {
 			arr[i] = 0
@@ -369,6 +378,8 @@ loop_begin:
 				negArr[i] = 0
 			}
 		}
+		b[0] = 0
+		ip, index = 0, 0
 		goto loop_begin
 	}
 	return nil
