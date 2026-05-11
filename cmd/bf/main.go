@@ -203,6 +203,7 @@ func realMain() int {
 		programStaticSizeName = "static-program"
 		arrBlockName          = "block"
 		loopName              = "loop"
+		loopInfName           = "loop-inf"
 		arrWrapAroundName     = "wrap"
 		sepInputName          = "sep"
 		ttyFlagName           = "tty"
@@ -273,6 +274,11 @@ func realMain() int {
 			1,
 			"Number of times to run bf program; "+
 				"negative number means infinite",
+		)
+		loopInf = flag.Bool(
+			loopInfName,
+			false,
+			"Run bf program infinitely; overrides -"+loopName,
 		)
 		arrWrapAround = flag.Bool(
 			arrWrapAroundName,
@@ -402,10 +408,16 @@ func realMain() int {
 	if *bufferOutput {
 		writer = bufio.NewWriter(os.Stdout)
 	}
+	var loopTimesNum int64
+	if *loopInf {
+		loopTimesNum = -1
+	} else {
+		loopTimesNum = *loopTimes
+	}
 	bfOptions := &bf.Options{
 		ArrSize:              *arrSize,
 		ProgramSize:          *programSize,
-		LoopTimes:            *loopTimes,
+		LoopTimes:            loopTimesNum,
 		ArrHasNegAddress:     *arrNegAddr,
 		ArrHasStaticSize:     *arrStaticSize,
 		ProgramHasStaticSize: *programStaticSize,
