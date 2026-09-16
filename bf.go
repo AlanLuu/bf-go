@@ -42,6 +42,7 @@ type Options struct {
 	ProgramSize          int
 	LoopTimes            int64
 	LimitNum             int
+	LimitOutNum          int
 	ArrHasNegAddress     bool
 	ArrHasStaticSize     bool
 	ProgramHasStaticSize bool
@@ -109,8 +110,19 @@ func interpret(chunks []chunk, opts *Options) error {
 	hasOpts := !opts.NoOptimizations
 	eofInRange := opts.eofInRange()
 	chunksLen := len(chunks)
+	enableLimitOut := false
 	var limitFunc func()
-	if limitNum := opts.LimitNum; limitNum > 0 {
+	if limitOutNum := opts.LimitOutNum; limitOutNum > 0 {
+		dur := time.Duration(
+			(1 / float64(limitOutNum)) * float64(time.Second),
+		)
+		limitFunc = func() {
+			if enableLimitOut {
+				time.Sleep(dur)
+				enableLimitOut = false
+			}
+		}
+	} else if limitNum := opts.LimitNum; limitNum > 0 {
 		dur := time.Duration(
 			(1 / float64(limitNum)) * float64(time.Second),
 		)
@@ -210,6 +222,7 @@ loop_begin:
 				arr[index] += uint8(chunks[ip].val)
 			}
 		case op_OUTPUT:
+			enableLimitOut = true
 			if index < 0 {
 				if negArr == nil {
 					negArr = make([]uint8, opts.ArrSize)
