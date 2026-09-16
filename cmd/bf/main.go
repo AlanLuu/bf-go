@@ -202,6 +202,8 @@ func realMain() int {
 		arrStaticSizeName     = "static-arr"
 		programStaticSizeName = "static-program"
 		arrBlockName          = "block"
+		limitName             = "limit"
+		limitOutName          = "limit-out"
 		loopName              = "loop"
 		loopInfName           = "loop-inf"
 		arrWrapAroundName     = "wrap"
@@ -268,6 +270,19 @@ func realMain() int {
 			"Block array address from going over or under size of bf array; "+
 				"overrides -"+arrNegAddrName+", -"+arrStaticSizeName+
 				", and -"+arrWrapAroundName,
+		)
+		limitFlag = flag.Int(
+			limitName,
+			0,
+			"Limit the number of instructions executing per second to the "+
+				"specified number; no effect if number is 0 or negative",
+		)
+		limitOutFlag = flag.Int(
+			limitOutName,
+			0,
+			"Limit the number of output instructions executing per second "+
+				"to the specified number; no effect if number is 0 or "+
+				"negative; overrides -"+limitName,
 		)
 		loopTimes = flag.Int64(
 			loopName,
@@ -418,6 +433,8 @@ func realMain() int {
 		ArrSize:              *arrSize,
 		ProgramSize:          *programSize,
 		LoopTimes:            loopTimesNum,
+		LimitNum:             *limitFlag,
+		LimitOutNum:          *limitOutFlag,
 		ArrHasNegAddress:     *arrNegAddr,
 		ArrHasStaticSize:     *arrStaticSize,
 		ProgramHasStaticSize: *programStaticSize,
