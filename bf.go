@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 )
 
 const (
@@ -40,6 +41,7 @@ type Options struct {
 	ArrSize              int
 	ProgramSize          int
 	LoopTimes            int64
+	LimitNum             int
 	ArrHasNegAddress     bool
 	ArrHasStaticSize     bool
 	ProgramHasStaticSize bool
@@ -107,6 +109,15 @@ func interpret(chunks []chunk, opts *Options) error {
 	hasOpts := !opts.NoOptimizations
 	eofInRange := opts.eofInRange()
 	chunksLen := len(chunks)
+	var limitFunc func()
+	if limitNum := opts.LimitNum; limitNum > 0 {
+		dur := time.Duration(
+			(1 / float64(limitNum)) * float64(time.Second),
+		)
+		limitFunc = func() {
+			time.Sleep(dur)
+		}
+	}
 	var errFunc func(index int, format string, a ...any) error
 	if opts.NoOptimizations {
 		errFunc = bfInterpretErr
@@ -131,6 +142,9 @@ loop_begin:
 				}
 				b[0] = 0
 				ip, index = 0, 0
+				if limitFunc != nil {
+					limitFunc()
+				}
 				goto loop_begin
 			} else if loopTimes > 1 && loopTimesCount < loopTimes-1 {
 				loopTimesCount++
@@ -144,6 +158,9 @@ loop_begin:
 				}
 				b[0] = 0
 				ip, index = 0, 0
+				if limitFunc != nil {
+					limitFunc()
+				}
 				goto loop_begin
 			}
 			return nil
@@ -321,6 +338,9 @@ loop_begin:
 			} else if index < 0 {
 				index = 0
 			}
+			if limitFunc != nil {
+				limitFunc()
+			}
 			continue
 		}
 		if arrWrapAround {
@@ -328,6 +348,9 @@ loop_begin:
 				index = 0
 			} else if index < 0 {
 				index = len(arr) - 1
+			}
+			if limitFunc != nil {
+				limitFunc()
 			}
 			continue
 		}
@@ -349,6 +372,9 @@ loop_begin:
 				negArr = negArr[:cap(negArr)]
 			}
 		}
+		if limitFunc != nil {
+			limitFunc()
+		}
 	}
 	if !arrNegAddr && index < 0 {
 		if ip <= 0 {
@@ -367,6 +393,9 @@ loop_begin:
 		}
 		b[0] = 0
 		ip, index = 0, 0
+		if limitFunc != nil {
+			limitFunc()
+		}
 		goto loop_begin
 	} else if loopTimes > 1 && loopTimesCount < loopTimes-1 {
 		loopTimesCount++
@@ -380,6 +409,9 @@ loop_begin:
 		}
 		b[0] = 0
 		ip, index = 0, 0
+		if limitFunc != nil {
+			limitFunc()
+		}
 		goto loop_begin
 	}
 	return nil
