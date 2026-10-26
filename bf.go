@@ -11,6 +11,7 @@ import (
 const (
 	DefaultArrSize     = 30000
 	DefaultProgramSize = 5000
+	DefaultLoopTimes   = 1
 	DoNothingOnEOF     = 256
 	ErrMsgHeader       = "bf: "
 	NegativeArrErrMsg  = "array address became negative"
@@ -639,6 +640,7 @@ func Execute(text string, opts *Options) error {
 	} else {
 		opts = &Options{
 			ArrSize:     DefaultArrSize,
+			LoopTimes:   DefaultLoopTimes,
 			ProgramSize: DefaultProgramSize,
 		}
 	}
